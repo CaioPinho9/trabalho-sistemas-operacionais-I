@@ -1,10 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <stdlib.h>
 #include <unistd.h>
+#include <pthread.h>
 
-// my adaptation of the COORD type that came from windows.h, aparently
+typedef struct
+{
+	int X;
+	int Y;
+	int direction;
+} BOMB_ARGS;
+
 typedef struct
 {
 	int X;
@@ -69,8 +75,14 @@ int is_out(int x, int y)
 	}
 }
 
-void bomb(int x, int y, int direction)
+void *bomb_thread(void *args)
 {
+	BOMB_ARGS *bomb_args = (BOMB_ARGS *)args;
+	int x = bomb_args->X;
+	int y = bomb_args->Y;
+	int direction = bomb_args->direction;
+	free(bomb_args);
+
 	switch (direction)
 	{
 	case -2:
@@ -87,7 +99,8 @@ void bomb(int x, int y, int direction)
 		break;
 	case 2:
 		x += 3;
-		}
+		break;
+	}
 	for (; y > 0; y--)
 	{
 		switch (direction)
@@ -105,6 +118,7 @@ void bomb(int x, int y, int direction)
 		case 2:
 			x += 2;
 			y++;
+			break;
 		}
 		if (is_out(x, y))
 			break;
@@ -115,11 +129,11 @@ void bomb(int x, int y, int direction)
 		gotoxy(x, y);
 		printf(" \n");
 	}
-};
+	return NULL;
+}
 
 void startCannon(int x, int y, int cannon)
 {
-	time_t t;
 	gotoxy(x, y + 1);
 	printf(" ___+--+___");
 	gotoxy(x, y + 2);
@@ -138,8 +152,10 @@ void shotCannon(int x, int y)
 	printf("/          \\");
 	gotoxy(x, y);
 	srand((unsigned)time(&t));
-	for (int rocket = 3; rocket > 0; rocket--)
+	pthread_t threads[3];
+	for (int rocket = 0; rocket < 3; rocket++)
 	{
+		sleep(1);
 		direction = (rand() % 5) - 2;
 		gotoxy(0, 28);
 		printf("%6d  %6d\n", rocket, direction);
@@ -161,7 +177,17 @@ void shotCannon(int x, int y)
 		case 2:
 			printf("     ||- ");
 		}
-		bomb(x + 5, y - 1, direction);
+
+		BOMB_ARGS *args = malloc(sizeof(BOMB_ARGS));
+		args->X = x + 5;
+		args->Y = y - 1;
+		args->direction = direction;
+		pthread_create(&threads[rocket], NULL, bomb_thread, (void *)args);
+	}
+
+	for (int rocket = 0; rocket < 3; rocket++)
+	{
+		pthread_join(threads[rocket], NULL);
 	}
 }
 
@@ -206,6 +232,7 @@ void bridge()
 	gotoxy(30, 29);
 	printf("|      /       \\        |\n");
 }
+
 void deposit()
 {
 	gotoxy(0, 20);
@@ -239,9 +266,5 @@ int main()
 
 	shotCannon(originCannon, 22);
 
-	for (int i = 0; i < 7; i++)
-	{
-		detonate_bomb((rand() % 70) + 10, (rand() % 10) + 4);
-		sleep(1);
-	}
+	return 0;
 }
