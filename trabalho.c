@@ -1,150 +1,200 @@
 #include <stdio.h>
 #include <stdlib.h>
-// commented the windows.h lib call, because I'm using linux
-//#include <windows.h>
 #include <time.h>
 #include <stdlib.h>
 #include <unistd.h>
 
 // my adaptation of the COORD type that came from windows.h, aparently
-typedef struct  {
-    int X;
-    int Y;
+typedef struct
+{
+	int X;
+	int Y;
 } COORD;
 
+int x, missao = 0;
+int originCannon = 53;
 
-int x, missao=0;
-int origemCanhao0 = 53, origemCanhao1 = 93;
-int contaRefem = 10;
-int contaResgatado = 0;
-int posicaoHelice = 0;
-int posicaRoda[2] = {0, 0};
-int canhaoMovendo[2] = {0, 0};
-
-
-
-//Função gotoxy
 void gotoxy(int x, int y)
 {
-  COORD coord;
-  coord.X = x;
-  coord.Y = y;
-  printf("\033[%d;%dH", coord.Y, coord.X);
+	COORD coord;
+	coord.X = x;
+	coord.Y = y;
+	printf("\033[%d;%dH", coord.Y, coord.X);
 }
 
-void explode_bomba(int x, int y){
+void detonate_bomb(int x, int y)
+{
 	gotoxy(x, y);
 	printf("*");
 	sleep(1);
 	printf(" ");
-	gotoxy(x, y-1);
+	gotoxy(x, y - 1);
 	printf("O");
-	gotoxy(x-1, y);
+	gotoxy(x - 1, y);
 	printf("O O");
-	gotoxy(x, y+1);
+	gotoxy(x, y + 1);
 	printf("O");
 	sleep(1);
-	gotoxy(x, y-1);
+	gotoxy(x, y - 1);
 	printf(" ");
-	gotoxy(x-1, y);
+	gotoxy(x - 1, y);
 	printf("   ");
-	gotoxy(x, y+1);
+	gotoxy(x, y + 1);
 	printf(" ");
 
-
-	gotoxy(x, y-2);
+	gotoxy(x, y - 2);
 	printf("o");
-	gotoxy(x-2, y);
+	gotoxy(x - 2, y);
 	printf("o   o");
-	gotoxy(x, y+2);
+	gotoxy(x, y + 2);
 	printf("o");
 	sleep(1);
-	gotoxy(x, y-2);
+	gotoxy(x, y - 2);
 	printf(" ");
-	gotoxy(x-2, y);
+	gotoxy(x - 2, y);
 	printf("     ");
-	gotoxy(x, y+2);
+	gotoxy(x, y + 2);
 	printf(" ");
 }
 
+int is_out(int x, int y)
+{
+	if (x < 12 || x > 109 || y < 0 || y > 25)
+	{
+		return 1;
+	}
+	else
+	{
+		return 0;
+	}
+}
 
-void bomba(int x, int y, int posicao){
-	for (; y > 0; y--){
-		switch(posicao){
-			case -2: x -= 2; y++; break;
-    		case -1: x--; break;
-    		case 0: x; break;
-    		case 1: x++; break;
-			case 2: x+=3; y++;
+void bomb(int x, int y, int direction)
+{
+	switch (direction)
+	{
+	case -2:
+		x -= 2;
+		break;
+	case -1:
+		x--;
+		break;
+	case 0:
+		y--;
+		break;
+	case 1:
+		x++;
+		break;
+	case 2:
+		x += 3;
 		}
+	for (; y > 0; y--)
+	{
+		switch (direction)
+		{
+		case -2:
+			x -= 2;
+			y++;
+			break;
+		case -1:
+			x--;
+			break;
+		case 1:
+			x++;
+			break;
+		case 2:
+			x += 2;
+			y++;
+		}
+		if (is_out(x, y))
+			break;
+
 		gotoxy(x, y);
 		printf("o\n");
 		sleep(1);
 		gotoxy(x, y);
 		printf(" \n");
-   }
-}
+	}
+};
 
-void inicializaCanhao(int x, int y, int canhao){
-	time_t  t;
-	gotoxy(x, y+1);
+void startCannon(int x, int y, int cannon)
+{
+	time_t t;
+	gotoxy(x, y + 1);
 	printf(" ___+--+___");
-	gotoxy(x, y+2);
+	gotoxy(x, y + 2);
 	printf("/          \\");
 	gotoxy(x, y);
 	printf("     ||");
 }
 
-void canhaoAtira(int x, int y){
-	int posicao;
-	time_t  t;
-	gotoxy(x, y+1);
+void shotCannon(int x, int y)
+{
+	int direction;
+	time_t t;
+	gotoxy(x, y + 1);
 	printf(" ___+--+___");
-	gotoxy(x, y+2);
+	gotoxy(x, y + 2);
 	printf("/          \\");
 	gotoxy(x, y);
-	srand((unsigned) time(&t));
-	for (int foguete = 3; foguete > 0; foguete--){
-		posicao =  (rand() % 5)-2;
+	srand((unsigned)time(&t));
+	for (int rocket = 3; rocket > 0; rocket--)
+	{
+		direction = (rand() % 5) - 2;
 		gotoxy(0, 28);
-		printf("%6d  %6d\n", foguete, posicao);
+		printf("%6d  %6d\n", rocket, direction);
 		gotoxy(x, y);
-    	switch(posicao){
-    		case -2: printf("    -||\n"); break;
-    		case -1: printf("     \\\\\n"); break;
-    		case 0: printf("     ||"); break;
-    		case 1: printf("     //"); break;
-    		case 2: printf("     ||-");
+		switch (direction)
+		{
+		case -2:
+			printf("    -|| \n");
+			break;
+		case -1:
+			printf("     \\\\ \n");
+			break;
+		case 0:
+			printf("     || ");
+			break;
+		case 1:
+			printf("     // ");
+			break;
+		case 2:
+			printf("     ||- ");
 		}
-		bomba(x + 5, y - 1, posicao);
+		bomb(x + 5, y - 1, direction);
 	}
 }
 
-void plataformaE(void){
-	int linha;
+void plataformLeft()
+{
+	int line;
 	gotoxy(0, 7);
 	printf("----------+\n");
 	gotoxy(0, 8);
 	printf("|         /\n");
-	for(linha=9; linha < 25; linha++){
-		gotoxy(0, linha);
+	for (line = 9; line < 25; line++)
+	{
+		gotoxy(0, line);
 		printf("|        |\n");
 	}
 }
 
-void plataformaD(void){
-	int linha;
+void plataformRight()
+{
+	int line;
 	gotoxy(108, 7);
 	printf("+-----------\n");
 	gotoxy(109, 8);
 	printf("\\         \n");
-	for(linha=9; linha < 25; linha++){
-		gotoxy(109, linha);
+	for (line = 9; line < 25; line++)
+	{
+		gotoxy(109, line);
 		printf(" |        | \n");
 	}
 }
 
-void ponte(void){
+void bridge()
+{
 	gotoxy(30, 25);
 	printf("+-----------------------+\n");
 	gotoxy(30, 26);
@@ -155,8 +205,9 @@ void ponte(void){
 	printf("|       /     \\         |\n");
 	gotoxy(30, 29);
 	printf("|      /       \\        |\n");
-	}
-void deposito(void){
+}
+void deposit()
+{
 	gotoxy(0, 20);
 	printf("|\\|\\|\\|\\|\\|\\|\\|\\|\\|\\|\\");
 	gotoxy(0, 21);
@@ -169,27 +220,28 @@ void deposito(void){
 	printf("|       |    |        |");
 }
 
-int main(){
-  int coluna = 5;
-  int linha  = 3;
-  int k=0;
-  system("clear");
-  gotoxy(0, 25);
-  for(coluna=0; coluna<120; coluna++){
-  	printf("^");
-  }
-  inicializaCanhao(origemCanhao0, 22, 0);
-  ponte();
-  deposito();
-  plataformaE();
-  plataformaD();
+int main()
+{
+	int column = 5;
+	int line = 3;
+	int k = 0;
+	system("clear");
+	gotoxy(0, 25);
+	for (column = 0; column < 120; column++)
+	{
+		printf("^");
+	}
+	startCannon(originCannon, 22, 0);
+	bridge();
+	deposit();
+	plataformLeft();
+	plataformRight();
 
-  canhaoAtira(origemCanhao0, 22); // Canhao Dispara
-  sleep(1); // Carregando canhao 0
-  canhaoAtira(origemCanhao0, 22); // Canhao 0 Dispara
+	shotCannon(originCannon, 22);
 
-  for(int i = 0; i < 7; i++){ // Bombas explodem no ar
-  	 explode_bomba((rand() % 70)+10, (rand() % 10)+4);
-  	 sleep(1);
-  }
+	for (int i = 0; i < 7; i++)
+	{
+		detonate_bomb((rand() % 70) + 10, (rand() % 10) + 4);
+		sleep(1);
+	}
 }
