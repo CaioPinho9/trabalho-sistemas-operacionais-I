@@ -20,12 +20,19 @@ typedef struct
 	int Y;
 } COORD;
 
-int x, missao = 0;
+int ship_speed;
+int rocket_capacity;
+int recharge_cooldown = 0;
+int shoot_cooldown = 0;
+
+int current_rocket = 0;
+
 const int cannon_x = 53;
 const int cannon_y = 21;
 
-int current_bomb = 0;
-pthread_t bomb_threads[5];
+int rocket_index = 0;
+
+pthread_t rocket_threads[10];
 pthread_t input_thread;
 pthread_t cannon_thread;
 
@@ -44,7 +51,7 @@ void mvprint(int x, int y, char *string)
 	pthread_mutex_unlock(&mutex);
 }
 
-void detonate_bomb(int x, int y)
+void detonate_rocket(int x, int y)
 {
 	mvprint(x, y, "*");
 	sleep(1);
@@ -68,7 +75,7 @@ void detonate_bomb(int x, int y)
 
 int is_out_range(int x, int y)
 {
-	if (x < 12 || x > 109 || y < 0 || y > 25)
+	if (x < 23 || x > 109 || y < 0 || y > 25)
 	{
 		return 1;
 	}
@@ -78,13 +85,13 @@ int is_out_range(int x, int y)
 	}
 }
 
-void *bomb_thread_function(void *args)
+void *rocket_thread_function(void *args)
 {
-	BOMB_ARGS *bomb_args = (BOMB_ARGS *)args;
-	int x = bomb_args->X;
-	int y = bomb_args->Y;
-	int direction = bomb_args->direction;
-	free(bomb_args);
+	BOMB_ARGS *rocket_args = (BOMB_ARGS *)args;
+	int x = rocket_args->X;
+	int y = rocket_args->Y;
+	int direction = rocket_args->direction;
+	free(rocket_args);
 
 	switch (direction)
 	{
@@ -133,16 +140,15 @@ void *bomb_thread_function(void *args)
 	return NULL;
 }
 
-void shoot_bomb(int x, int y, int direction)
+void shoot_rocket(int x, int y, int direction)
 {
 	BOMB_ARGS *args = (BOMB_ARGS *)malloc(sizeof(BOMB_ARGS));
 	args->X = x + 5;
 	args->Y = y - 1;
 	args->direction = direction;
-	pthread_create(&bomb_threads[current_bomb % (sizeof(bomb_threads) / sizeof(pthread_t))], NULL, bomb_thread_function, (void *)args);
-	current_bomb++;
+	pthread_create(&rocket_threads[rocket_index % (sizeof(rocket_threads) / sizeof(pthread_t))], NULL, rocket_thread_function, (void *)args);
+	rocket_index++;
 }
-
 void block_terminal_input()
 {
 	struct termios new_termios;
@@ -202,12 +208,30 @@ void *input_thread_function(void *args)
 			sprintf(direction_str, "%02d", direction);
 			mvprint(1, 26, direction_str);
 
-			if (ch == ' ')
-				shoot_bomb(cannon_x, cannon_y, direction);
+			char rocket_str[3];
+			sprintf(rocket_str, "%02d", current_rocket);
+			mvprint(4, 26, rocket_str);
+
+			if (ch == ' ' && current_rocket > 0 && !recharge_cooldown && !shoot_cooldown)
+			{
+				shoot_rocket(cannon_x, cannon_y, direction);
+				current_rocket--;
+				shoot_cooldown = 25;
+			}
+			if (ch == 'e' && current_rocket < rocket_capacity && !recharge_cooldown)
+			{
+				current_rocket++;
+				recharge_cooldown = 50;
+			}
+
 			if (ch == 'q')
 				exit(0);
 		}
 		usleep(10000);
+		if (recharge_cooldown > 0)
+			recharge_cooldown--;
+		if (shoot_cooldown > 0)
+			shoot_cooldown--;
 	}
 	return NULL;
 }
@@ -286,8 +310,38 @@ void deposit()
 	mvprint(0, 24, "|       |    |        |");
 }
 
+void configure_difficulty(int difficulty)
+{
+	switch (difficulty)
+	{
+	case 1:
+		ship_speed = 1;
+		rocket_capacity = 10;
+		break;
+	case 2:
+
+		ship_speed = 2;
+		rocket_capacity = 8;
+		break;
+	case 3:
+		ship_speed = 3;
+		rocket_capacity = 6;
+		break;
+	}
+	current_rocket = rocket_capacity;
+}
+
 int main()
 {
+	system("clear");
+	printf("Welcome to the game!\n");
+	printf("Please select the difficulty level (1-3): ");
+	int difficulty = 1;
+	scanf("%d", &difficulty);
+	printf("You have selected difficulty level %d\n", difficulty);
+
+	configure_difficulty(difficulty);
+
 	int column = 5;
 	system("clear");
 	block_terminal_input();
