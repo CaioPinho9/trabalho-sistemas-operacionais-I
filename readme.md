@@ -1,3 +1,3 @@
-sudo apt-get install libncurses5-dev libncursesw5-dev g++ build-essential
+sudo apt-get install libncurses5-dev libncursesw5-dev g++ build-essential -y
 
-g++ -o trabalho trabalho.c -lncurses -lpthread
+gpp -o trabalho trabalho.c -lpthread
