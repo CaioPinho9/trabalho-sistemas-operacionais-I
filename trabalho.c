@@ -44,10 +44,10 @@ int direction;
 
 void mvprint(int x, int y, char *string)
 {
+	pthread_mutex_lock(&mutex);
 	COORD coord;
 	coord.X = x;
 	coord.Y = y;
-	pthread_mutex_lock(&mutex);
 	printf("\033[%d;%dH", coord.Y, coord.X);
 	printf("%s", string);
 	pthread_mutex_unlock(&mutex);
