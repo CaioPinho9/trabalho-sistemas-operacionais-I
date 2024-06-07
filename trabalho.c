@@ -12,7 +12,7 @@ typedef struct
 	int X;
 	int Y;
 	int direction;
-} BOMB_ARGS;
+} ROCKET_ARGS;
 
 typedef struct
 {
@@ -87,7 +87,7 @@ int is_out_range(int x, int y)
 
 void *rocket_thread_function(void *args)
 {
-	BOMB_ARGS *rocket_args = (BOMB_ARGS *)args;
+	ROCKET_ARGS *rocket_args = (ROCKET_ARGS *)args;
 	int x = rocket_args->X;
 	int y = rocket_args->Y;
 	int direction = rocket_args->direction;
@@ -142,7 +142,7 @@ void *rocket_thread_function(void *args)
 
 void shoot_rocket(int x, int y, int direction)
 {
-	BOMB_ARGS *args = (BOMB_ARGS *)malloc(sizeof(BOMB_ARGS));
+	ROCKET_ARGS *args = (ROCKET_ARGS *)malloc(sizeof(ROCKET_ARGS));
 	args->X = x + 5;
 	args->Y = y - 1;
 	args->direction = direction;
