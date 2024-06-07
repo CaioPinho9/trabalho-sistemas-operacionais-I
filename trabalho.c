@@ -12,6 +12,7 @@ typedef struct
 	int X;
 	int Y;
 	int direction;
+	int destroyed;
 } ROCKET_ARGS;
 
 typedef struct
@@ -32,6 +33,7 @@ const int cannon_y = 21;
 
 int rocket_index = 0;
 
+ROCKET_ARGS *rockets[10];
 pthread_t rocket_threads[10];
 pthread_t input_thread;
 pthread_t cannon_thread;
@@ -88,55 +90,55 @@ int is_out_range(int x, int y)
 void *rocket_thread_function(void *args)
 {
 	ROCKET_ARGS *rocket_args = (ROCKET_ARGS *)args;
-	int x = rocket_args->X;
-	int y = rocket_args->Y;
-	int direction = rocket_args->direction;
-	free(rocket_args);
 
-	switch (direction)
+	switch (rocket_args->direction)
 	{
 	case -2:
-		x -= 2;
+		rocket_args->X -= 2;
 		break;
 	case -1:
-		x--;
+		rocket_args->X--;
 		break;
 	case 0:
-		y--;
+		rocket_args->Y--;
 		break;
 	case 1:
-		x++;
+		rocket_args->X++;
 		break;
 	case 2:
-		x += 3;
+		rocket_args->X += 3;
 		break;
 	}
-	for (; y > 0; y--)
+	for (; rocket_args->Y > 0; rocket_args->Y--)
 	{
-		switch (direction)
-		{
-		case -2:
-			x -= 2;
-			y++;
-			break;
-		case -1:
-			x--;
-			break;
-		case 1:
-			x++;
-			break;
-		case 2:
-			x += 2;
-			y++;
-			break;
-		}
-		if (is_out_range(x, y))
+		if (rocket_args->destroyed)
 			break;
 
-		mvprint(x, y, "o\n");
+		switch (rocket_args->direction)
+		{
+		case -2:
+			rocket_args->X -= 2;
+			rocket_args->Y++;
+			break;
+		case -1:
+			rocket_args->X--;
+			break;
+		case 1:
+			rocket_args->X++;
+			break;
+		case 2:
+			rocket_args->X += 2;
+			rocket_args->Y++;
+			break;
+		}
+		if (is_out_range(rocket_args->X, rocket_args->Y))
+			break;
+
+		mvprint(rocket_args->X, rocket_args->Y, "o\n");
 		usleep(100000);
-		mvprint(x, y, " \n");
+		mvprint(rocket_args->X, rocket_args->Y, " \n");
 	}
+	free(rocket_args);
 	return NULL;
 }
 
@@ -146,7 +148,8 @@ void shoot_rocket(int x, int y, int direction)
 	args->X = x + 5;
 	args->Y = y - 1;
 	args->direction = direction;
-	pthread_create(&rocket_threads[rocket_index % (sizeof(rocket_threads) / sizeof(pthread_t))], NULL, rocket_thread_function, (void *)args);
+	rockets[rocket_index % (rocket_capacity * 2)] = args;
+	pthread_create(&rocket_threads[rocket_index % (rocket_capacity * 2)], NULL, rocket_thread_function, (void *)args);
 	rocket_index++;
 }
 void block_terminal_input()
@@ -263,6 +266,16 @@ void *cannon_thread_function(void *args)
 		else if (direction == 2)
 		{
 			mvprint(x, y, "     /\\= ");
+		}
+
+		for (size_t i = 0; i < 10; i++)
+		{
+			if (rockets[i] != NULL)
+			{
+				char rocket_str[50];
+				sprintf(rocket_str, "Rocket %d: X=%d Y=%d\n", i, rockets[i]->X, rockets[i]->Y);
+				mvprint(0, i + 1, rocket_str);
+			}
 		}
 
 		usleep(10000); // Small delay to reduce CPU usage
