@@ -5,9 +5,12 @@
 #include <termios.h>
 #include <fcntl.h>
 #include <string.h>
-#include <stdint.h> // For intptr_t
+#include <stdint.h>
+#include <time.h>
+#include <math.h>
 
 #define MAX_ROCKETS 10
+#define MAX_SHIPS 10
 
 typedef struct
 {
@@ -24,7 +27,15 @@ typedef struct
 	int Y;
 } COORD;
 
-int ship_speed;
+typedef struct {
+	int X;
+	float Y;
+	int destroyed;
+	int index;
+} SHIP_ARGS;
+
+
+float ship_speed;
 int rocket_capacity;
 int recharge_cooldown = 0;
 int shoot_cooldown = 0;
@@ -32,17 +43,22 @@ int shoot_cooldown = 0;
 int current_rocket = 0;
 
 const int cannon_x = 53;
-const int cannon_y = 21;
+const int cannon_y = 22;
 
 int rocket_index = 0;
+int ship_index = 0;
 
 ROCKET_ARGS *rockets[MAX_ROCKETS];
-pthread_t input_thread;
-pthread_t cannon_thread;
+SHIP_ARGS *ships[MAX_SHIPS];
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int direction;
+
+int total_ships;
+int total_ships_destroyed;
+int total_ships_land;
+int remaining_ships;
 
 void mvprint(int x, int y, char *string)
 {
@@ -58,12 +74,12 @@ void mvprint(int x, int y, char *string)
 void detonate_rocket(int x, int y)
 {
 	mvprint(x, y, "*");
-	sleep(1);
+	usleep(100000);
 	mvprint(x, y, " ");
 	mvprint(x, y - 1, "O");
 	mvprint(x - 1, y, "O O");
 	mvprint(x, y + 1, "O");
-	sleep(1);
+	sleep(100000);
 	mvprint(x, y - 1, " ");
 	mvprint(x - 1, y, "   ");
 	mvprint(x, y + 1, " ");
@@ -71,7 +87,7 @@ void detonate_rocket(int x, int y)
 	mvprint(x, y - 2, "o");
 	mvprint(x - 2, y, "o   o");
 	mvprint(x, y + 2, "o");
-	sleep(1);
+	sleep(100000);
 	mvprint(x, y - 2, " ");
 	mvprint(x - 2, y, "     ");
 	mvprint(x, y + 2, " ");
@@ -134,6 +150,40 @@ void *rocket_thread_function(void *arg)
 		mvprint(rocket_args->X, rocket_args->Y, " \n");
 	}
 
+	return NULL;
+}
+
+void *ship_thread_function(void *arg)
+{
+	SHIP_ARGS *ship_args = (SHIP_ARGS*)malloc(sizeof(SHIP_ARGS));
+	ships[ship_index] = ship_args;
+
+	int pos_x = (rand()%85)+23;
+	ship_args->X = pos_x;
+	ship_args->Y = 0;
+	ship_args->destroyed=0;
+	ship_args->index=ship_index;
+	ship_index++;
+	ship_index %= MAX_SHIPS;
+
+	for (; ship_args->Y < 23; ship_args->Y+=ship_speed)
+	{
+		if (ship_args->destroyed){
+			total_ships_destroyed++;
+			free(ship_args);
+			return NULL;
+		}
+		mvprint(ship_args->X, ceil(ship_args->Y), ">V<\n");
+		mvprint(ship_args->X, ceil(ship_args->Y) + 1,   "<=>\n");
+		mvprint(ship_args->X, ceil(ship_args->Y) + 2,   " v \n");
+		usleep(100000);
+		mvprint(ship_args->X, ceil(ship_args->Y),   "   \n");
+		mvprint(ship_args->X, ceil(ship_args->Y) + 1,   "   \n");
+		mvprint(ship_args->X, ceil(ship_args->Y) + 2,   "   \n");
+	
+	}
+	total_ships_land++;
+	free(ship_args);
 	return NULL;
 }
 
@@ -281,16 +331,8 @@ void *cannon_thread_function(void *args)
 			mvprint(x, y, "     /\\= ");
 		}
 
-		// TODO: remove debug print
-		for (size_t i = 0; i < MAX_ROCKETS; i++)
-		{
-			if (rockets[i] != NULL)
-			{
-				char rocket_str[50];
-				sprintf(rocket_str, "Rocket %d: X=%d Y=%d\n", (int)i, rockets[i]->X, rockets[i]->Y);
-				mvprint(0, i + 1, rocket_str);
-			}
-		}
+		mvprint(x, y + 1, " ___+--+___");
+		mvprint(x, y + 2, "/          \\");
 
 		usleep(10000); // Small delay to reduce CPU usage
 	}
@@ -342,23 +384,68 @@ void configure_difficulty(int difficulty)
 	switch (difficulty)
 	{
 	case 1:
-		ship_speed = 1;
+		ship_speed = 0.25;
+		total_ships = 2;
 		rocket_capacity = 10;
 		break;
 	case 2:
-		ship_speed = 2;
+		ship_speed = 0.5;
+		total_ships = 4;
 		rocket_capacity = 8;
 		break;
 	case 3:
-		ship_speed = 3;
+		ship_speed = 0.75;
+		total_ships=6;
 		rocket_capacity = 6;
 		break;
 	}
 	current_rocket = rocket_capacity;
 }
 
+void *colision_thread_function(void *args) {
+	int count;
+	while (1)
+	{
+		if (count % 600000) {
+			for (size_t ship_index = 0; ship_index < MAX_SHIPS; ship_index++)
+			{
+				SHIP_ARGS* ship = ships[ship_index];
+				if (ship == NULL || ship->destroyed)
+					continue;
+
+				char ship_str[50];
+				sprintf(ship_str, "Ship %d: X=%d Y=%d\n", (int)ship_index, ship->X, ship->Y);
+				mvprint(50, ship_index + 1, ship_str);
+
+				for (size_t rocket_index = 0; rocket_index < MAX_ROCKETS; rocket_index++)
+				{
+					ROCKET_ARGS *rocket = rockets[rocket_index];
+					if (rocket == NULL || rocket->destroyed)
+						continue;
+
+					char rocket_str[50];
+					sprintf(rocket_str, "Rocket %d: X=%d Y=%d\n", (int)rocket_index, rocket->X, rocket->Y);
+					mvprint(0, rocket_index + 1, rocket_str);
+					
+					if (rocket->X <= ship->X <= rocket->X + 2 && rocket->Y <= ship->Y <= ship->Y + 2) {
+						rocket->destroyed = 1;
+						ship->destroyed = 1;
+						detonate_rocket(rocket->X, rocket->Y);
+					}
+
+				}
+			}
+			
+		}
+		count++;
+	}
+	
+	
+}
+
 int main()
 {
+	srand(time(NULL));
 	system("clear");
 	printf("Welcome to the game!\n");
 	printf("Please select the difficulty level (1-3): ");
@@ -380,8 +467,25 @@ int main()
 	plataform_left();
 	plataform_right();
 
+	pthread_t input_thread;
+	pthread_t cannon_thread;
+	pthread_t colision_thread;
+
 	pthread_create(&input_thread, NULL, input_thread_function, NULL);
 	pthread_create(&cannon_thread, NULL, cannon_thread_function, NULL);
+	// pthread_create(&colision_thread, NULL, colision_thread_function, NULL);
+
+	unsigned count = 0;
+	remaining_ships = total_ships;
+
+	while(1){
+		if (count % 600000000 == 0 && remaining_ships > 0){
+			pthread_t ship_thread;
+			pthread_create(&ship_thread, NULL, ship_thread_function, NULL);
+			remaining_ships--;
+		}
+		count++;
+	}
 
 	pthread_join(input_thread, NULL);
 	pthread_join(cannon_thread, NULL);
