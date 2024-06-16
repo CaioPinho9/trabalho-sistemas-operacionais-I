@@ -74,28 +74,6 @@ void mvprint(int x, int y, char *string)
 	pthread_mutex_unlock(&mutex);
 }
 
-void detonate_rocket(int x, int y)
-{
-	mvprint(x, y, "*");
-	usleep(100000);
-	mvprint(x, y, " ");
-	mvprint(x, y - 1, "O");
-	mvprint(x - 1, y, "O O");
-	mvprint(x, y + 1, "O");
-	usleep(100000);
-	mvprint(x, y - 1, " ");
-	mvprint(x - 1, y, "   ");
-	mvprint(x, y + 1, " ");
-
-	mvprint(x, y - 2, "o");
-	mvprint(x - 2, y, "o   o");
-	mvprint(x, y + 2, "o");
-	usleep(100000);
-	mvprint(x, y - 2, " ");
-	mvprint(x - 2, y, "     ");
-	mvprint(x, y + 2, " ");
-}
-
 int is_out_range(int x, int y)
 {
 	return (x < 23 || x > 109 || y < 0 || y > 25);
@@ -488,7 +466,6 @@ int main()
 
                         rocket->destroyed = 1;
                         ship->destroyed = 1;
-                        // detonate_rocket(rocket->X, rocket->Y);
                     }
                 }
             }
