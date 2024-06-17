@@ -1,2 +1,2 @@
-gcc -o trabalho trabalho.c -lpthread
+gcc -o trabalho trabalho.c -lpthread -lm
 ./trabalho
